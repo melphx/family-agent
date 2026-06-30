@@ -22,10 +22,7 @@ family:
     - name: Digby
       role: child
       age: 7
-      activities:
-        - name: karate
-          website: "https://example-karate-school.com/schedule"
-          signup: "weekly"
+      activities: []   # add real activities here, e.g. karate, soccer
       therapies:
         - name: Occupational Therapy (OT)
           provider: Kids Care Pediatric PT & OT Services
@@ -44,13 +41,11 @@ connectors:
   gmail:
     enabled: false        # set true for Phase 1 (with mode: live)
     scopes: ["https://www.googleapis.com/auth/gmail.readonly"]
-    query: "is:unread newer_than:7d"   # which messages to ingest
-    max_results: 10
+    query: "is:unread newer_than:14d -category:promotions -category:social"
+    max_results: 20
   calendar:
     enabled: false
     scopes: ["https://www.googleapis.com/auth/calendar.events"]
   web_monitor:
-    enabled: true
-    targets:
-      - name: "Digby karate schedule"
-        url: "https://example-karate-school.com/schedule"
+    enabled: false
+    targets: []   # add real URLs to monitor
