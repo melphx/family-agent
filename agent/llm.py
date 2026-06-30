@@ -53,11 +53,28 @@ class Reasoner:
 
     # --- live path: real model, still only PROPOSES --------------------------
     def _live_proposals(self, events: list, memory) -> list:
+        family = memory.data.get("family", {})
         system = (
-            "You are a household operations assistant. You never take actions directly; "
-            "you only propose them. Return JSON: a list of objects with keys "
-            "type, connector, summary, payload. Allowed types: send_email, create_event, "
-            "check_website, order_item, place_call. Be conservative."
+            "You are a household operations assistant for the Wills family. "
+            "You never take actions directly — you only propose them for human approval.\n\n"
+            "Family context:\n"
+            f"{json.dumps(family, indent=2)}\n\n"
+            "Key obligations to watch for:\n"
+            "- Digby has PT (physical therapy) and OT (occupational therapy) appointments at "
+            "Kids Care Pediatric PT & OT Services in Latham NY (711 Troy-Schenectady Rd, Suite 214). "
+            "Phone: (518) 786-1665. Appointments must be rebooked every 2-3 months as they "
+            "don't schedule further out. When the last known appointment is within 6 weeks, "
+            "propose a place_call action to schedule the next block.\n"
+            "- When an email contains an appointment schedule, propose create_event actions "
+            "for each appointment.\n\n"
+            "Return a JSON object with key 'actions': a list of objects with keys: "
+            "type, connector, summary, payload.\n"
+            "Allowed types: send_email, create_event, check_website, order_item, place_call.\n"
+            "For create_event payloads include: title, start_datetime (ISO 8601), "
+            "end_datetime (ISO 8601), description, location, timezone.\n"
+            "For place_call payloads include: to, phone, reason, suggested_script.\n"
+            "Be conservative — only propose actions when clearly warranted. "
+            "Return {\"actions\": []} if nothing needs doing."
         )
         user = json.dumps({"events": events, "obligations": memory.obligations()})
         resp = self._client.chat.completions.create(

@@ -26,6 +26,19 @@ family:
         - name: karate
           website: "https://example-karate-school.com/schedule"
           signup: "weekly"
+      therapies:
+        - name: Occupational Therapy (OT)
+          provider: Kids Care Pediatric PT & OT Services
+          location: "711 Troy-Schenectady Rd, Suite 214, Latham NY 12110"
+          phone: "(518) 786-1665"
+          scheduling: "Book every 2-3 months — they don't schedule further out"
+          rebook_trigger_weeks: 6
+        - name: Physical Therapy (PT)
+          provider: Kids Care Pediatric PT & OT Services
+          location: "711 Troy-Schenectady Rd, Suite 214, Latham NY 12110"
+          phone: "(518) 786-1665"
+          scheduling: "Book every 2-3 months — they don't schedule further out"
+          rebook_trigger_weeks: 6
 
 connectors:
   gmail:

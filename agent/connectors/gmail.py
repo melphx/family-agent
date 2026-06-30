@@ -44,6 +44,27 @@ def _header(headers, name):
     return ""
 
 
+def _extract_body(payload: dict) -> str:
+    """Recursively extract plain-text body from a Gmail message payload."""
+    mime = payload.get("mimeType", "")
+    if mime == "text/plain":
+        data = payload.get("body", {}).get("data", "")
+        if data:
+            return base64.urlsafe_b64decode(data + "==").decode("utf-8", errors="replace")
+    if mime == "text/html":
+        data = payload.get("body", {}).get("data", "")
+        if data:
+            html = base64.urlsafe_b64decode(data + "==").decode("utf-8", errors="replace")
+            # Strip tags crudely for plain-text consumption by LLM
+            import re
+            return re.sub(r"<[^>]+>", " ", html).strip()
+    for part in payload.get("parts", []):
+        result = _extract_body(part)
+        if result:
+            return result
+    return ""
+
+
 class GmailConnector(Connector):
     name = "gmail"
 
@@ -66,19 +87,20 @@ class GmailConnector(Connector):
         events = []
         for ref in resp.get("messages", []):
             msg = service.users().messages().get(
-                userId="me", id=ref["id"], format="metadata",
-                metadataHeaders=["From", "Subject", "Date"],
+                userId="me", id=ref["id"], format="full",
             ).execute()
             headers = msg.get("payload", {}).get("headers", [])
             subject = _header(headers, "Subject")
             sender = _header(headers, "From")
-            snippet = msg.get("snippet", "")
+            date = _header(headers, "Date")
+            body = _extract_body(msg.get("payload", {}))
             events.append({
                 "source": "gmail",
                 "id": ref["id"],
                 "from": sender,
                 "subject": subject,
-                "text": f"From {sender} | {subject} | {snippet}",
+                "date": date,
+                "text": f"From: {sender}\nSubject: {subject}\nDate: {date}\n\n{body}",
             })
         return events
 
