@@ -136,7 +136,7 @@ class Reasoner:
                     {"role": "system", "content": system},
                     {"role": "user", "content": json.dumps(state)},
                 ],
-                max_tokens=200,
+                max_completion_tokens=200,
             )
             return resp.choices[0].message.content.strip()
         except Exception as e:
@@ -165,7 +165,7 @@ class Reasoner:
                     {"role": "system", "content": system},
                     {"role": "user", "content": f"Context: {json.dumps(context)}\n\nQuestion: {message}"},
                 ],
-                max_tokens=300,
+                max_completion_tokens=300,
             )
             return resp.choices[0].message.content.strip()
         except Exception as e:
