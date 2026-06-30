@@ -47,12 +47,27 @@ class ApprovalQueue:
             )
 
     def is_duplicate(self, action: dict) -> bool:
-        """Return True if an identical pending or recent proposal already exists."""
+        """Return True if an equivalent proposal already exists.
+        For create_event, match on title + start_datetime to catch LLM rephrasing.
+        For others, match on type + summary.
+        """
+        payload = action.get("payload", {})
         with self._conn() as c:
-            row = c.execute(
-                "SELECT id FROM proposals WHERE type=? AND summary=? AND status IN ('pending','approved','executed') LIMIT 1",
-                (action["type"], action.get("summary", "")),
-            ).fetchone()
+            if action["type"] == "create_event" and payload.get("start_datetime"):
+                row = c.execute(
+                    """SELECT id FROM proposals
+                       WHERE type='create_event'
+                       AND json_extract(payload,'$.start_datetime')=?
+                       AND json_extract(payload,'$.title')=?
+                       AND status IN ('pending','approved','executed')
+                       LIMIT 1""",
+                    (payload["start_datetime"], payload.get("title", "")),
+                ).fetchone()
+            else:
+                row = c.execute(
+                    "SELECT id FROM proposals WHERE type=? AND summary=? AND status IN ('pending','approved','executed') LIMIT 1",
+                    (action["type"], action.get("summary", "")),
+                ).fetchone()
             return row is not None
 
     def propose(self, action: dict) -> Optional[dict]:
