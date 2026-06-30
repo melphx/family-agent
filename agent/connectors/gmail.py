@@ -1,9 +1,4 @@
-"""Gmail connector — Phase 1: READ-ONLY.
-
-Authenticates with the dedicated family Gmail and turns recent messages into
-normalized events the reasoner can act on. It only ever READS here. Sending email
-is still a stubbed action (Phase 2) so that even an approved 'send_email' cannot
-actually leave the box yet — read-only by construction.
+"""Gmail connector — reads email and sends approved replies.
 
 Credentials (created in Google Cloud, see PHASE1-GMAIL-SETUP.md):
   secrets/google_client.json   OAuth client (Desktop app) you download from Google
@@ -11,6 +6,7 @@ Credentials (created in Google Cloud, see PHASE1-GMAIL-SETUP.md):
 """
 import os
 import base64
+from email.mime.text import MIMEText
 
 from agent.connectors.base import Connector
 
@@ -106,6 +102,23 @@ class GmailConnector(Connector):
 
     def execute(self, action_type: str, payload: dict) -> str:
         if action_type == "send_email":
-            # Phase 2 will implement real sending (and require gmail.send scope).
-            return f"[stub] would send email to {payload.get('to')} re '{payload.get('subject')}'"
+            try:
+                scopes = [
+                    "https://www.googleapis.com/auth/gmail.readonly",
+                    "https://www.googleapis.com/auth/gmail.send",
+                ]
+                service = build_service(scopes)
+                msg = MIMEText(payload.get("body", ""))
+                msg["to"] = payload.get("to", "")
+                msg["subject"] = payload.get("subject", "")
+                if payload.get("reply_to_id"):
+                    msg["In-Reply-To"] = payload["reply_to_id"]
+                    msg["References"] = payload["reply_to_id"]
+                raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+                sent = service.users().messages().send(
+                    userId="me", body={"raw": raw}
+                ).execute()
+                return f"Sent email to {payload.get('to')} (id: {sent.get('id')})"
+            except Exception as e:
+                return f"[gmail] send failed: {e}"
         return f"[gmail] unsupported action: {action_type}"
