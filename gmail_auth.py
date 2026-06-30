@@ -30,10 +30,17 @@ def main():
             "Google Cloud and save it there. See PHASE1-GMAIL-SETUP.md."
         )
 
-    flow = InstalledAppFlow.from_client_secrets_file(CLIENT_FILE, SCOPES)
-    # Console flow: no local server or SSH tunnel needed.
-    # Opens a URL, you authorize, Google gives you a code, paste it back here.
-    creds = flow.run_console()
+    flow = InstalledAppFlow.from_client_secrets_file(
+        CLIENT_FILE, SCOPES,
+        redirect_uri="urn:ietf:wg:oauth:2.0:oob"
+    )
+    auth_url, _ = flow.authorization_url(prompt="consent")
+    print("\nOpen this URL in your browser:\n")
+    print(auth_url)
+    print("\nAfter authorizing, Google will show you a code. Paste it here.")
+    code = input("Enter the authorization code: ").strip()
+    flow.fetch_token(code=code)
+    creds = flow.credentials
 
     os.makedirs("secrets", exist_ok=True)
     with open(TOKEN_FILE, "w") as f:
