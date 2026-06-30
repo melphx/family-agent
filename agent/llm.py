@@ -110,3 +110,63 @@ class Reasoner:
             return data if isinstance(data, list) else data.get("actions", [])
         except Exception:
             return []
+
+    def summarize(self, pending: list, cal_events: list, past: list, memory) -> str:
+        """Generate a natural-language AI summary of the current family state."""
+        if self._client is None:
+            return "Running in demo mode — connect OpenAI for AI summaries."
+        family = memory.data.get("family", {})
+        state = {
+            "pending_actions": [{"type": p["type"], "summary": p["summary"]} for p in pending],
+            "upcoming_calendar": [{"title": e.get("title"), "start": e.get("start")} for e in cal_events[:10]],
+            "recent_activity": [{"type": r["type"], "summary": r["summary"], "status": r["status"]} for r in past[:10]],
+            "family": family,
+        }
+        system = (
+            "You are a helpful family assistant for the Wills family. "
+            "Given the current state of the family agent, write a warm, concise 2-3 sentence "
+            "summary of what's going on today. Mention pending items needing attention, "
+            "upcoming appointments, and anything noteworthy. Be specific and practical. "
+            "Write in plain English as if talking to a busy parent."
+        )
+        try:
+            resp = self._client.chat.completions.create(
+                model=self.cfg.get("model", "gpt-4o"),
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": json.dumps(state)},
+                ],
+                max_tokens=200,
+            )
+            return resp.choices[0].message.content.strip()
+        except Exception as e:
+            return f"Summary unavailable: {e}"
+
+    def chat(self, message: str, pending: list, cal_events: list, memory) -> str:
+        """Answer a question about the family's current state."""
+        if self._client is None:
+            return "Running in demo mode — connect OpenAI for chat."
+        family = memory.data.get("family", {})
+        context = {
+            "pending_actions": [{"type": p["type"], "summary": p["summary"], "payload": p.get("payload")} for p in pending],
+            "upcoming_calendar": [{"title": e.get("title"), "start": e.get("start")} for e in cal_events[:15]],
+            "family": family,
+        }
+        system = (
+            "You are a helpful family assistant for the Wills family. "
+            "Answer questions about the family's schedule, appointments, pending actions, "
+            "and anything in the provided context. Be concise and direct. "
+            "If you don't know something, say so honestly."
+        )
+        try:
+            resp = self._client.chat.completions.create(
+                model=self.cfg.get("model", "gpt-4o"),
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": f"Context: {json.dumps(context)}\n\nQuestion: {message}"},
+                ],
+                max_tokens=300,
+            )
+            return resp.choices[0].message.content.strip()
+        except Exception as e:
+            return f"Sorry, I couldn't process that: {e}"
