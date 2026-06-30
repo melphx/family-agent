@@ -31,13 +31,9 @@ def main():
         )
 
     flow = InstalledAppFlow.from_client_secrets_file(CLIENT_FILE, SCOPES)
-    # Headless: don't try to launch a browser on the server; we use the SSH tunnel.
-    creds = flow.run_local_server(
-        host="localhost", port=8765, open_browser=False,
-        bind_addr="0.0.0.0",
-        authorization_prompt_message="Open this URL in your (tunneled) browser:\n{url}",
-        success_message="Authorized. You can close this tab and return to the terminal.",
-    )
+    # Console flow: no local server or SSH tunnel needed.
+    # Opens a URL, you authorize, Google gives you a code, paste it back here.
+    creds = flow.run_console()
 
     os.makedirs("secrets", exist_ok=True)
     with open(TOKEN_FILE, "w") as f:
