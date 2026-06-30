@@ -40,16 +40,33 @@ class Agent:
 
     # 2-3) REASON + PLAN ------------------------------------------------------
     def run_cycle(self) -> list:
-        events = self.gather_events()
-        for e in events:
-            self.memory.remember_event(e.get("source", "?"), e.get("text", ""))
+        all_events = self.gather_events()
 
-        actions = self.reasoner.propose_actions(events, self.memory)
+        # Filter out already-processed emails
+        new_events = []
+        for e in all_events:
+            eid = e.get("id")
+            if eid and self.memory.is_processed(eid):
+                continue
+            new_events.append(e)
+
+        for e in new_events:
+            self.memory.remember_event(e.get("source", "?"), e.get("text", ""))
+            if e.get("id"):
+                self.memory.mark_processed(e["id"])
+
+        if not new_events:
+            print("[core] No new events to process.")
+            self.execute_approved()
+            return []
+
+        actions = self.reasoner.propose_actions(new_events, self.memory)
 
         proposed = []
         for a in actions:
             row = self.queue.propose(a)
-            proposed.append(row)
+            if row is not None:
+                proposed.append(row)
 
         # Execute anything already approved (e.g. auto-approved read actions).
         self.execute_approved()

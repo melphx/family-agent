@@ -46,8 +46,19 @@ class ApprovalQueue:
                 )"""
             )
 
-    def propose(self, action: dict) -> dict:
-        """Insert a proposed action. Auto-approve only if its type is allow-listed."""
+    def is_duplicate(self, action: dict) -> bool:
+        """Return True if an identical pending or recent proposal already exists."""
+        with self._conn() as c:
+            row = c.execute(
+                "SELECT id FROM proposals WHERE type=? AND summary=? AND status IN ('pending','approved','executed') LIMIT 1",
+                (action["type"], action.get("summary", "")),
+            ).fetchone()
+            return row is not None
+
+    def propose(self, action: dict) -> Optional[dict]:
+        """Insert a proposed action, skipping duplicates. Auto-approve read-only types."""
+        if self.is_duplicate(action):
+            return None
         pid = str(uuid.uuid4())[:8]
         status = "approved" if action["type"] in self.auto_approve_types else "pending"
         row = {

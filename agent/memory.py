@@ -35,3 +35,15 @@ class Memory:
     def add_obligation(self, ob: dict):
         self.data["obligations"].append(ob)
         self._save()
+
+    def is_processed(self, event_id: str) -> bool:
+        return event_id in self.data.get("processed_ids", [])
+
+    def mark_processed(self, event_id: str):
+        if "processed_ids" not in self.data:
+            self.data["processed_ids"] = []
+        if event_id not in self.data["processed_ids"]:
+            self.data["processed_ids"].append(event_id)
+            # Keep only last 500 IDs to prevent unbounded growth
+            self.data["processed_ids"] = self.data["processed_ids"][-500:]
+            self._save()
