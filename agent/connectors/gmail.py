@@ -61,6 +61,20 @@ def _extract_body(payload: dict) -> str:
     return ""
 
 
+def _extract_images(payload: dict) -> list:
+    """Recursively extract image attachments from a Gmail message payload.
+    Returns list of dicts with 'mime' and 'data' (base64url string)."""
+    images = []
+    mime = payload.get("mimeType", "")
+    if mime in ("image/png", "image/jpeg", "image/jpg", "image/gif"):
+        data = payload.get("body", {}).get("data", "")
+        if data:
+            images.append({"mime": mime, "data": data})
+    for part in payload.get("parts", []):
+        images.extend(_extract_images(part))
+    return images
+
+
 class GmailConnector(Connector):
     name = "gmail"
 
@@ -90,14 +104,18 @@ class GmailConnector(Connector):
             sender = _header(headers, "From")
             date = _header(headers, "Date")
             body = _extract_body(msg.get("payload", {}))
-            events.append({
+            images = _extract_images(msg.get("payload", {}))
+            event = {
                 "source": "gmail",
                 "id": ref["id"],
                 "from": sender,
                 "subject": subject,
                 "date": date,
                 "text": f"From: {sender}\nSubject: {subject}\nDate: {date}\n\n{body}",
-            })
+            }
+            if images:
+                event["images"] = images
+            events.append(event)
         return events
 
     def execute(self, action_type: str, payload: dict) -> str:

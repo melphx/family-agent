@@ -51,8 +51,54 @@ class Reasoner:
                 })
         return out
 
+    def _extract_image_text(self, image_b64: str, mime: str = "image/png") -> str:
+        """Use GPT-4o vision to extract all text from an image attachment."""
+        if not self._client:
+            return ""
+        try:
+            # Normalize base64url → standard base64 with padding
+            data = image_b64.replace("-", "+").replace("_", "/")
+            data += "=" * ((4 - len(data) % 4) % 4)
+            resp = self._client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "Extract ALL text from this image verbatim. "
+                                "Include every date, time, name, address, and detail. "
+                                "Format as plain text preserving the table structure."
+                            ),
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{mime};base64,{data}"},
+                        },
+                    ],
+                }],
+                max_completion_tokens=500,
+            )
+            return resp.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"[llm] Image text extraction failed: {e}")
+            return ""
+
     # --- live path: real model, still only PROPOSES --------------------------
     def _live_proposals(self, events: list, memory) -> list:
+        # If any event has image attachments, extract their text via vision first
+        for e in events:
+            if e.get("images"):
+                extracted = []
+                for img in e["images"]:
+                    text = self._extract_image_text(img["data"], img.get("mime", "image/png"))
+                    if text:
+                        extracted.append(text)
+                if extracted:
+                    e["text"] = (e.get("text", "") + "\n\n[Image content extracted]\n" + "\n\n".join(extracted)).strip()
+                del e["images"]  # don't pass raw base64 to the text LLM
+
         family = memory.data.get("family", {})
         system = (
             "You are a household operations assistant for the Wills family. "
